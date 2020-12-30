@@ -1,1 +1,1 @@
-module.exports = require('./dist/circos.es6');
+module.exports = require('./dist/igv.min');
