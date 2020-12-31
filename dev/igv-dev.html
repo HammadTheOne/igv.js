@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <title>IGV - Dev</title>
+
+    <style>
+        #trackList {
+
+            border-color: rgb(127, 127, 127);
+            border-style: solid;
+            border-width: thin;
+
+            width: 480px;
+            height: 256px;
+            overflow-y: auto;
+        }
+
+        div#trackList > div, div#myDiv > h3 {
+
+            font-family: 'PT Sans', sans-serif;
+            font-size: small;
+            font-weight: 400;
+
+            color: #444;
+            margin-left: 16px;
+            margin-top: 4px;
+            margin-bottom: 4px;
+
+            padding-left: 32px;
+        }
+
+        div#myDiv > h3 {
+            font-size: large;
+        }
+
+        div#trackList > div:hover,
+        div#trackList > div:focus,
+        div#trackList > div:active {
+            cursor: pointer;
+            color: white;
+            background-color: rgba(49, 106, 246, 1);
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div>
+    <button id="bmBtn">Bookmark</button>
+</div>
+
+<h3>Example tracks - click to load</h3>
+
+<div id="trackList"></div>
+
+<div id="igvDiv" style="padding-top: 50px;padding-bottom: 20px; height: auto"></div>
+
+</body>
+
+<script type="module">
+
+    import igv from '../js/index.js'
+    import GtexUtils from "../js/gtex/gtexUtils.js";
+
+    let browser
+    (async () => {
+
+        const options =
+            {
+                genome: "hg19",
+                locus: "chr1",
+                // locus: 'chr8:100,117,313-100,120,998',
+                // locus: 'myc',
+                // locus: [ 'ace', 'myc' ],
+                // locus: [ 'egfr', 'myc', 'ace' ],
+
+                // use for one-feature BED track
+                // locus: 'chr1:999999-1000000',
+                // tracks:
+                // [
+                //     {
+                //         "url": "https://s3.amazonaws.com/1000genomes/release/20130502/ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.vcf.gz?versionId=null",
+                //         "indexURL": "https://s3.amazonaws.com/1000genomes/release/20130502/ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.vcf.gz.tbi?versionId=null",
+                //         "name": "1KG Sites"
+                //     }                ]
+            };
+
+        const session_config =
+            {
+                "version": "2.7.0",
+                "reference": {
+                    "id": "hg19",
+                    "name": "Human (CRCh37/hg19)",
+                    "fastaURL": "https://s3.dualstack.us-east-1.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg19/hg19.fasta",
+                    "indexURL": "https://s3.dualstack.us-east-1.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg19/hg19.fasta.fai",
+                    "cytobandURL": "https://s3.dualstack.us-east-1.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg19/cytoBand.txt"
+                },
+                "locus": "chr1:1-249,250,621",
+                "tracks": [
+                    {
+                        "type": "sequence",
+                        "order": -900719925474.0991
+                    },
+                    {
+                        "name": "Refseq Genes",
+                        "format": "refgene",
+                        "url": "https://s3.dualstack.us-east-1.amazonaws.com/igv.org.genomes/hg19/ncbiRefGene.txt.gz",
+                        "indexed": false,
+                        "visibilityWindow": -1,
+                        "removable": false,
+                        "order": 1000000
+                    }
+                ]
+            };
+
+        browser = await igv.createBrowser(document.getElementById('igvDiv'), options)
+
+        await createTrackList(document.getElementById('trackList'), 'testTracks.json', browser)
+
+    })()
+
+    function createTrackList(div, file, browser) {
+
+        return igv.xhr.loadJson(file)
+
+            .then(function (tracks) {
+
+                tracks.forEach(function (track) {
+
+                    var trackDiv, name;
+
+                    if (track.HEADING) {
+                        div.insertAdjacentHTML("beforeend",
+                            "<div style='cursor:default;background:lightgrey;color:black;margin-left:0; font-weight:bold;font-size: larger'>"
+                            + track.HEADING + "</div>");
+                    } else {
+                        trackDiv = document.createElement('div');
+                        trackDiv.innerHTML = track.name;
+                        trackDiv.addEventListener('click', function (event) {
+
+                            // Convert to json to insure we can load json representations (not strictly neccessary).
+                            var json = JSON.stringify(track);
+
+                            browser.loadTrack(json);
+                        });
+
+                        div.appendChild(trackDiv);
+                    }
+
+                })
+
+                return GtexUtils.getTissueInfo("gtex_v7")
+            })
+
+            .then(function (json) {
+
+                div.insertAdjacentHTML("beforeend",
+                    "<div style='cursor:default;background:lightgrey;color:black;margin-left:0; font-weight:bold;font-size: larger'>GTEX</div>");
+
+                json['tissueInfo'].forEach(function (obj) {
+
+                    let trackDiv = document.createElement('div');
+                    trackDiv.innerHTML = (obj.tissueSiteDetailId.split('_').join(' '));
+                    trackDiv.addEventListener('click', function (event) {
+
+                        browser.loadTrack(GtexUtils.trackConfiguration(obj));
+
+                    });
+
+                    div.appendChild(trackDiv)
+
+                })
+            });
+
+    }
+
+    function bookmark() {
+        window.history.pushState({}, "IGV", browser.sessionURL());
+    }
+
+    document.getElementById("bmBtn").addEventListener("click", bookmark);
+
+</script>
+</html>
